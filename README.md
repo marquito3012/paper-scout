@@ -1,104 +1,102 @@
-# 📚 Paper Scout
+# 📚 Paper Scout — Tu Smart Research Assistant
 
-App de escritorio Linux con interfaz gráfica que busca papers de arXiv, los resume con IA y los guarda automáticamente como notas de Obsidian según tus palabras clave.
+
+**Paper Scout** es una aplicación de escritorio *premium* diseñada para Linux que transforma la forma en que investigas. Utiliza Inteligencia Artificial para buscar papers en **arXiv**, resumirlos de forma inteligente y organizarlos automáticamente en tu **Vault de Obsidian**.
 
 ![Paper Scout GUI](assets/screenshot_gui.png)
 
-## ✨ Características
+---
 
-- 🔍 **Búsqueda en arXiv** — Busca papers por palabras clave con la API oficial de arXiv
-- 🤖 **Resúmenes con IA** — Genera resúmenes estructurados en español con Gemini o OpenAI
-- 📝 **Notas de Obsidian** — Guarda automáticamente archivos `.md` con frontmatter YAML completo
-- 🏷️ **Tags automáticos** — Mapea categorías de arXiv a tags legibles (ej. `cs.CL` → `nlp`)
-- 🔔 **Notificaciones** — Avisa al terminar con `notify-send` en Linux
-- 💾 **Persistencia** — Recuerda tu configuración entre sesiones
-- 🧵 **Non-blocking UI** — Pipeline en segundo plano con `QThread` (Worker Object Pattern)
+## ✨ Características Principales
 
-## 🚀 Instalación
+### 🔍 Búsqueda de Precisión
+- **Búsqueda por Frases**: Usa comas para buscar términos exactos (ej: `deep learning, transformer`).
+- **✨ Búsqueda Mágica**: Describe tu tema en lenguaje natural y deja que la IA genere las palabras clave técnicas por ti.
 
-### 1. Clonar y configurar entorno
+### 🤖 Motor de IA Multi-Proveedor
+Soporte nativo para los mejores modelos del mercado:
+- **Cloud**: OpenAI (GPT-4o), Gemini (2.0 Flash) y **Claude (3.5 Sonnet)**.
+- **Local**: Integración total con **Ollama** (Llama 3.2, Phi-3, etc.) para total privacidad y coste cero.
+
+### 🚀 Aceleración por Hardware
+- **Detección Automática de GPU**: Optimizado para GPUs **NVIDIA** y **AMD**.
+- **Offloading Inteligente**: Configuración automática de capas en VRAM para que la inferencia local sea instantánea.
+
+### 📓 Integración con Obsidian
+- **Notas Estructuradas**: Genera archivos `.md` con resúmenes en español.
+- **Metadata en YAML**: Frontmatter optimizado para el plugin **Dataview**.
+- **Tags Inteligentes**: Mapeo automático de categorías de arXiv a tags legibles.
+
+---
+
+## 🚀 Instalación y Configuración
+
+### 1. Requisitos Previos
+Asegúrate de tener Python 3.10+ y, opcionalmente, Ollama instalado si prefieres inferencia local.
+
+### 2. Configuración del Entorno
 ```bash
-# Clonar el repositorio
+# Clonar y entrar al proyecto
 git clone https://github.com/marquito3012/paper-scout.git
 cd paper-scout
 
-# Crear entorno virtual
+# Crear entorno virtual e instalar dependencias
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Instalar dependencias
 pip install -r requirements.txt
 ```
 
-### 2. Configurar el LLM (Elige una opción)
-
-#### Opción A: Local con Ollama (Ilimitado y Privado) 🏠
-Ideal si quieres evitar límites de cuota y procesar todo en tu CPU.
-1.  **Instalar Ollama:** 
-    ```bash
-    curl -fsSL https://ollama.com/install.sh | sh
-    ```
-2.  **Descargar modelo recomendado:**
-    Para un portátil estándar (sin GPU dedicada), se recomienda **Llama 3.2 (3B)** o **Phi-3 Mini**:
-    ```bash
-    ollama pull llama3.2
-    ```
-3.  **Asegurar que Ollama está corriendo:** La app se conectará automáticamente al servidor local (`localhost:11434`).
-
-#### Opción B: Cloud con Gemini o OpenAI 🤖
-1.  Obtén tu API Key desde [Google AI Studio](https://aistudio.google.com/) o [OpenAI Dashboard](https://platform.openai.com/).
-2.  La App soporta **Gemini 2.0 Flash** y **GPT-4o mini** por defecto para máximo ahorro y velocidad.
+### 3. Integración en el Sistema (Recomendado) 👔
+Para no tener que usar la terminal, instala Paper Scout como una aplicación nativa de tu escritorio:
+```bash
+chmod +x install_app.sh
+./install_app.sh
+```
+*Ahora podrás encontrar "Paper Scout" en tu menú de aplicaciones con su icono oficial.*
 
 ---
 
-## 🎮 Uso
+## 🎮 Guía de Uso
 
-1. **Lanzar la aplicación:**
-   ```bash
-   source .venv/bin/activate
-   python main.py
-   ```
-2. **Configurar búsqueda:**
-   - Introduce **palabras clave** (ej. `quantum computing error correction`).
-   - Define el **máximo de resultados**.
-3. **Configurar destino e IA:**
-   - Selecciona tu **Vault de Obsidian** 📁.
-   - Elige el **Proveedor** (Ollama, Gemini o OpenAI).
+1. **Inicia la App**: Úsala desde el menú de aplicaciones o con `python main.py`.
+2. **Configura tu IA**: 
+   - Selecciona el proveedor (Gemini, Claude, OpenAI u Ollama).
    - Si usas Cloud, pega tu **API Key**.
-4. **▶ Iniciar Búsqueda:** La app buscará, resumirá y guardará los archivos `.md` de forma asíncrona.
+   - Si usas Ollama, activa la **🚀 Aceleración por GPU**.
+3. **Describe tu Tema**: Pulsa el icono ✨, describe lo que buscas y acepta las palabras clave generadas.
+4. **Define tu Vault**: Selecciona la carpeta donde guardas tus notas de Obsidian.
+5. **▶ Iniciar**: La App trabajará en segundo plano sin bloquear la interfaz. Recibirás una notificación al terminar.
 
-Los archivos se guardarán con el formato: `YYYY-MM-DD_titulo-sanitizado.md`
+---
 
-## 📋 Formato de las Notas
+## 📊 Formato de Metadatos (Dataview Ready)
 
-Cada nota en Obsidian incluye un frontmatter YAML completo para facilitar el filtrado:
-
+Cada nota generada incluye este bloque YAML:
 ```yaml
 ---
-title: "Título del paper"
-authors: [Autor 1, Autor 2]
-tags: [paper, nlp, machine-learning]
-date: 2024-01-15
-arxiv_id: "2401.12345"
-url: "https://arxiv.org/abs/2401.12345"
-pdf_url: "https://arxiv.org/pdf/2401.12345"
-categories: [cs.CL, cs.AI]
+title: "Attention Is All You Need"
+authors: [Vaswani, Ashish, et al.]
+tags: [paper, machine-learning, nlp]
+date: 2017-06-12
+arxiv_id: "1706.03762"
+url: "https://arxiv.org/abs/1706.03762"
+pdf_url: "https://arxiv.org/pdf/1706.03762"
+categories: [cs.CL, cs.LG]
 status: unread
 created: 2026-03-28
 ---
 ```
 
-## 🧪 Tests
+---
 
-```bash
-source .venv/bin/activate
-python -m pytest tests/ -v
-```
+## 🛠️ Arquitectura Técnica
+- **GUI**: PyQt6 con sistema de temas QSS Dark.
+- **Async**: Patrón *Worker Object* para evitar el bloqueo del hilo principal (GUI) durante la inferencia y búsqueda.
+- **Modelos**: Abstracción de proveedores LLM mediante el motor `LLMSummarizer`.
+- **Hardware**: Utilidades de detección de hardware vía `subprocess` y `lspci`.
 
-## 🏗️ Arquitectura (MVC)
-- **Model:** Clientes de API, Generador de Markdown, Config Manager.
-- **View:** Interfaz PyQt6 con QSS (Dark Theme).
-- **Controller:** PipelineWorker gestionado por QThread para mantener la UI reactiva.
+---
 
 ## 📄 Licencia
-MIT
+© 2026 Paper Scout Team — MIT License.
+Hecho con 💡 para investigadores.
