@@ -23,23 +23,24 @@ SYSTEM_PROMPT = """Eres un asistente experto en investigación académica. Dado 
 [1-2 oraciones sobre el objetivo principal del paper]
 
 ## 🔬 Metodología
-[2-3 oraciones sobre el enfoque/método utilizado]
+[2-3 oraciones sobre el enfoque o método utilizado. REGLA: Envuelve arquitecturas, algoritmos o frameworks clave en wikilinks, ej. [[Transformer]], [[PyTorch]], [[ResNet]]].
 
 ## 📊 Resultados Clave
-[Lista con viñetas de los hallazgos principales]
+[Lista con viñetas de los hallazgos o métricas principales]
 
 ## 💡 Contribución e Impacto
-[1-2 oraciones sobre por qué este paper es relevante]
+[1-2 oraciones sobre por qué este paper es relevante y cómo avanza el campo]
 
-## 🔗 Conexiones
-[Sugiere temas o campos relacionados para lectura adicional]
+## 🔗 Conceptos Clave y Conexiones
+* **Conceptos:** [[Concepto 1]], [[Concepto 2]], [[Concepto 3]]
+* **Relación con el estado del arte:** [Breve explicación de cómo se posiciona este trabajo frente a otros paradigmas].
 
 REGLAS:
 - Escribe siempre en español.
 - Sé conciso pero informativo.
 - Usa terminología técnica apropiada.
 - No inventes datos que no estén en el abstract.
-- Mantén el formato exacto de las secciones con los emojis."""
+- Mantén el formato exacto de las secciones con los emojis y wikilinks."""
 
 
 # ──────────────────────────────────────────────────

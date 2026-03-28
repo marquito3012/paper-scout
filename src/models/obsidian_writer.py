@@ -36,23 +36,15 @@ ARXIV_CATEGORY_TAGS: dict[str, str] = {
     "cs.CR": "cybersecurity",
     "cs.DC": "distributed-computing",
     "cs.SE": "software-engineering",
-    "cs.DS": "data-structures",
-    "cs.PL": "programming-languages",
-    "cs.HC": "human-computer-interaction",
-    "cs.MA": "multiagent-systems",
-    "cs.MM": "multimedia",
     # Statistics / Math
     "stat.ML": "machine-learning",
     "stat.TH": "statistics",
-    "stat.ME": "statistical-methods",
     "math.OC": "optimization",
-    "math.ST": "statistics",
     # Physics
     "quant-ph": "quantum-computing",
     # Electrical Engineering
     "eess.SP": "signal-processing",
     "eess.AS": "audio-speech",
-    "eess.IV": "image-video-processing",
 }
 
 
@@ -63,7 +55,7 @@ def _sanitize_filename(title: str) -> str:
     Reglas (definidas en skills/obsidian-markdown/SKILL.md):
     1. Convertir a minúsculas
     2. Reemplazar espacios con guiones (-)
-    3. Eliminar caracteres especiales
+    3. Eliminar caracteres especiales específicos
     4. Colapsar guiones múltiples en uno solo
     5. Truncar a máximo 80 caracteres (sin cortar palabras)
     6. Eliminar guiones al inicio/final
@@ -74,8 +66,9 @@ def _sanitize_filename(title: str) -> str:
     # Paso 2: espacios → guiones
     name = name.replace(" ", "-")
     
-    # Paso 3: eliminar caracteres especiales
-    name = re.sub(r'[^a-z0-9\-]', '', name)
+    # Paso 3: eliminar caracteres especiales listados en SKILL.md
+    chars_to_remove = r'[\[\]\(\)\{\}\:\;\"\'\,\.\!\?\@\#\$\%\^\&\*\+\=\/\\\|\<\>\~]'
+    name = re.sub(chars_to_remove, '', name)
     
     # Paso 4: colapsar guiones múltiples
     name = re.sub(r'-+', '-', name)
@@ -97,12 +90,6 @@ def _sanitize_filename(title: str) -> str:
 def _map_categories_to_tags(categories: list[str]) -> list[str]:
     """
     Mapea categorías de arXiv a tags legibles para Obsidian.
-    
-    Si una categoría no está en el mapeo, se convierte a formato
-    slug reemplazando '.' con '-' (ej. cs.PL → cs-pl).
-    
-    Siempre incluye el tag 'paper' como primer elemento.
-    Elimina duplicados manteniendo el orden.
     """
     tags = ["paper"]
     seen = {"paper"}
@@ -120,23 +107,24 @@ def _build_frontmatter(paper: Paper, tags: list[str]) -> str:
     """
     Genera el bloque de frontmatter YAML para la nota de Obsidian.
     
-    Escapa las comillas dobles en el título para evitar romper el YAML.
-    Las fechas se formatean como ISO 8601 (YYYY-MM-DD).
+    Reglas SKILL.md:
+    - title, arxiv_id, url y pdf_url entre comillas dobles.
+    - authors como wikilinks [[Autor]].
+    - aliases vacío por defecto.
     """
-    # Escapar comillas en el título
+    # Escapar comillas en el título para el YAML
     safe_title = paper.title.replace('"', '\\"')
     
-    # Formatear autores como lista YAML
-    authors_yaml = "\n".join(f'  - "{author}"' for author in paper.authors)
+    # Autores como wikilinks: [[Autor]]
+    authors_yaml = "\n".join(f'  - "[[{author}]]"' for author in paper.authors)
     
-    # Formatear tags como lista YAML
+    # Formatear tags y categorías
     tags_yaml = "\n".join(f"  - {tag}" for tag in tags)
-    
-    # Formatear categorías como lista YAML
     categories_yaml = "\n".join(f"  - {cat}" for cat in paper.categories)
     
     frontmatter = f"""---
 title: "{safe_title}"
+aliases: []
 authors:
 {authors_yaml}
 tags:
