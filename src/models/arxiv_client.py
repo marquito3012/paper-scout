@@ -46,8 +46,12 @@ class ArxivClient:
             page_size: Número de resultados por página para la paginación
                        interna de la librería arxiv. Default: 10.
         """
-        # arxiv.Client maneja el rate limiting internamente (3s delay)
-        self._client = arxiv.Client(page_size=page_size)
+        # Aumentar retries y delay para robustez (SKILL.md & 503 fix)
+        self._client = arxiv.Client(
+            page_size=page_size,
+            delay_seconds=3.1,
+            num_retries=5
+        )
 
     def search(self, query: str, max_results: int = 10) -> list[Paper]:
         """
@@ -83,10 +87,14 @@ class ArxivClient:
                 papers.append(paper)
 
         except Exception as e:
-            # Re-raise con contexto para el worker
-            raise ConnectionError(
-                f"Error al buscar en arXiv: {str(e)}"
-            ) from e
+            error_str = str(e)
+            if "503" in error_str or "429" in error_str:
+                raise ConnectionError(
+                    f"arXiv está saturado o bajo mantenimiento (HTTP 503/429). "
+                    "Se han intentado varios reintentos automáticos sin éxito. "
+                    "Por favor, intenta de nuevo en unos minutos."
+                ) from e
+            raise ConnectionError(f"Error al buscar en arXiv: {error_str}") from e
 
 
         return papers

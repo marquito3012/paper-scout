@@ -118,7 +118,21 @@ class TestArxivClient:
         
         with pytest.raises(ConnectionError, match="Error al buscar en arXiv"):
             client.search("test")
-    def test_preprocess_query_logic(self):
+
+    @patch("src.models.arxiv_client.arxiv.Client")
+    def test_init_sets_correct_parameters(self, mock_client_cls):
+        """Verifica que ArxivClient inicialice arxiv.Client con los parámetros de robustez."""
+        # ArxivClient init
+        ArxivClient(page_size=25)
+        
+        # Verificar llamada a arxiv.Client
+        mock_client_cls.assert_called_once_with(
+            page_size=25,
+            delay_seconds=3.1,
+            num_retries=5
+        )
+
+    def test_preprocess_query_basic(self):
         """Verifica la transformación de queries con comas (phrases)."""
         client = ArxivClient()
         
