@@ -101,3 +101,40 @@ class TestLLMSummarizer:
     def test_system_prompt_instructs_spanish(self):
         """Verifica que el system prompt pide resúmenes en español."""
         assert "español" in SYSTEM_PROMPT.lower()
+    @patch("src.models.llm_summarizer.ollama", create=True)
+    def test_generate_keywords_ollama(self, mock_ollama_module):
+        """Verifica que la generación de keywords llame correctamente a Ollama."""
+        with patch.dict("sys.modules", {"ollama": mock_ollama_module}):
+            mock_ollama_module.chat.return_value = {
+                'message': {'content': 'keyword1, keyword2, keyword3'}
+            }
+            
+            summarizer = LLMSummarizer(provider="ollama", api_key="")
+            result = summarizer.generate_keywords("Quiero investigar sobre IA")
+            
+            assert result == "keyword1, keyword2, keyword3"
+            mock_ollama_module.chat.assert_called_once()
+            _, kwargs = mock_ollama_module.chat.call_args
+            # Verificar que el prompt de usuario contiene la descripción
+            assert "Quiero investigar sobre IA" in kwargs["messages"][1]["content"]
+
+    @patch("src.models.llm_summarizer.anthropic", create=True)
+    def test_claude_calls_messages_create(self, mock_anthropic_module):
+        """Verifica que Claude llame al cliente de Anthropic correctamente."""
+        with patch.dict("sys.modules", {"anthropic": mock_anthropic_module}):
+            # Mock de la respuesta
+            mock_message = MagicMock()
+            mock_message.content = [MagicMock(text="Resumen de Claude")]
+            mock_anthropic_module.Anthropic.return_value.messages.create.return_value = mock_message
+            
+            summarizer = LLMSummarizer(provider="claude", api_key="test-key")
+            paper = _make_paper()
+            
+            result = summarizer.summarize(paper)
+            
+            assert result == "Resumen de Claude"
+            mock_anthropic_module.Anthropic.assert_called_once_with(api_key="test-key")
+            
+            call_kwargs = mock_anthropic_module.Anthropic.return_value.messages.create.call_args[1]
+            assert call_kwargs["model"] == "claude-3-5-sonnet-20241022"
+            assert "Resumen" in call_kwargs["system"] or SYSTEM_PROMPT in call_kwargs["system"]

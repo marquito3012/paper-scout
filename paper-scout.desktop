@@ -1,0 +1,15 @@
+[Desktop Entry]
+Name=Paper Scout
+Comment=Investigador de papers con IA — ArXiv & Obsidian
+Exec=/home/marco/paper-scout/launcher.sh
+Icon=/home/marco/paper-scout/assets/app_icon.png
+Terminal=false
+Type=Application
+Categories=Education;Science;ArtificialIntelligence;Office;
+Keywords=arxiv;papers;research;ai;summarize;obsidian;
+StartupNotify=true
+Actions=
+
+[Desktop Action]
+Name=Nueva Búsqueda
+Exec=/home/marco/paper-scout/launcher.sh

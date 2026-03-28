@@ -16,14 +16,17 @@ Componentes:
 import webbrowser
 from typing import Optional
 
+from PyQt6 import sip
 from PyQt6.QtCore import Qt, QThread, QSize
 from PyQt6.QtGui import QFont, QIcon, QTextCursor, QColor
 from PyQt6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -38,7 +41,9 @@ from PyQt6.QtWidgets import (
 )
 
 from src.controllers.pipeline_controller import PipelineConfig, PipelineWorker
+from src.controllers.keyword_worker import KeywordWorker
 from src.utils.config_manager import load_config, save_config
+from src.utils.hardware_utils import detect_gpu
 
 
 # ──────────────────────────────────────────────────
@@ -340,12 +345,24 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        
+        # Hilos secundarios
         self._thread: Optional[QThread] = None
         self._worker: Optional[PipelineWorker] = None
         
+        # Hilo para búsqueda mágica
+        self._magic_thread: Optional[QThread] = None
+        self._magic_worker: Optional[KeywordWorker] = None
+        
         self._init_ui()
         self._load_saved_config()
+
+        # Autodetección de GPU (Ollama)
+        gpu = detect_gpu()
+        if gpu["found"]:
+            self.gpu_check.setChecked(True)
+            self._append_log(f"🚀 GPU Detectada: {gpu['name']} ({gpu['type'].upper()})", "success")
+        else:
+            self._append_log("ℹ️ No se detectó GPU dedicada. Usando CPU para Ollama.", "info")
 
     def _init_ui(self) -> None:
         """Construye toda la interfaz gráfica."""
@@ -385,11 +402,22 @@ class MainWindow(QMainWindow):
         kw_label = QLabel("Palabras clave:")
         self.keywords_input = QLineEdit()
         self.keywords_input.setPlaceholderText(
-            "ej: transformer attention mechanism, reinforcement learning..."
+            "ej: deep learning, transformer, attention mechanism"
         )
+        self.keywords_input.setToolTip("Usa comas para separar frases exactas (ej: deep learning, transformer)")
         self.keywords_input.setObjectName("keywordsInput")
+
+        self.magic_btn = QPushButton()
+        self.magic_btn.setIcon(QIcon("assets/magic_icon.svg"))
+        self.magic_btn.setIconSize(QSize(24, 24))
+        self.magic_btn.setObjectName("magicButton")
+        self.magic_btn.setToolTip("IA: Generar palabras clave a partir de una descripción")
+        self.magic_btn.setFixedWidth(50)
+        self.magic_btn.clicked.connect(self._on_magic_clicked)
+
         kw_row.addWidget(kw_label)
         kw_row.addWidget(self.keywords_input, 1)
+        kw_row.addWidget(self.magic_btn)
         search_layout.addLayout(kw_row)
 
         # Max results
@@ -431,12 +459,12 @@ class MainWindow(QMainWindow):
         api_label = QLabel("API Key:")
         self.api_key_input = QLineEdit()
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.api_key_input.setPlaceholderText("Tu API key de Gemini o OpenAI")
+        self.api_key_input.setPlaceholderText("Tu API key de Gemini, OpenAI o Anthropic")
         self.api_key_input.setObjectName("apiKeyInput")
 
         provider_label = QLabel("Proveedor:")
         self.provider_combo = QComboBox()
-        self.provider_combo.addItems(["OpenAI", "Gemini", "Ollama (Local)"])
+        self.provider_combo.addItems(["OpenAI", "Gemini", "Claude", "Ollama (Local)"])
         self.provider_combo.setObjectName("providerCombo")
         self.provider_combo.currentTextChanged.connect(self._on_provider_changed)
 
@@ -445,6 +473,12 @@ class MainWindow(QMainWindow):
         api_row.addWidget(provider_label)
         api_row.addWidget(self.provider_combo)
         config_layout.addLayout(api_row)
+
+        # GPU Acceleration
+        self.gpu_check = QCheckBox("🚀 Aceleración por GPU (Ollama)")
+        self.gpu_check.setObjectName("gpuCheck")
+        self.gpu_check.setToolTip("Activar para usar la gráfica (NVIDIA/AMD) en Ollama local")
+        config_layout.addWidget(self.gpu_check)
 
         main_layout.addWidget(config_group)
 
@@ -566,6 +600,64 @@ class MainWindow(QMainWindow):
     # Pipeline Control (Worker Object Pattern)
     # ──────────────────────────────────────────────
 
+    def _on_magic_clicked(self) -> None:
+        """Abre el diálogo para generar palabras clave via IA."""
+        # Validar configuración mínima (necesitamos un proveedor y API Key si no es Ollama)
+        provider = self.provider_combo.currentText().split(" ")[0].lower()
+        api_key = self.api_key_input.text().strip()
+        
+        if "ollama" not in provider and not api_key:
+            QMessageBox.warning(self, "Configuración incompleta", 
+                              "Por favor, ingresa tu API Key para usar la IA.")
+            return
+
+        description, ok = QInputDialog.getMultiLineText(
+            self, "Búsqueda Mágica ✨", 
+            "Describe el tema que quieres investigar en lenguaje natural:",
+            "ej: Quiero encontrar papers sobre modelos de lenguaje que procesen audio directamente..."
+        )
+
+        if ok and description.strip():
+            self._append_log("✨ Generando palabras clave con IA...", "info")
+            self.magic_btn.setEnabled(False)
+            
+            # Setup Thread y Worker
+            self._magic_thread = QThread()
+            self._magic_worker = KeywordWorker(
+                provider, 
+                api_key, 
+                description.strip(),
+                use_gpu=self.gpu_check.isChecked()
+            )
+            self._magic_worker.moveToThread(self._magic_thread)
+            
+            self._magic_thread.started.connect(self._magic_worker.run)
+            self._magic_worker.finished.connect(self._on_magic_finished)
+            self._magic_worker.error.connect(self._on_magic_error)
+            
+            # Cleanup
+            self._magic_worker.finished.connect(self._magic_thread.quit)
+            self._magic_worker.finished.connect(self._magic_worker.deleteLater)
+            self._magic_thread.finished.connect(self._magic_thread.deleteLater)
+            
+            # Evitar referencias muertas
+            self._magic_worker.destroyed.connect(lambda: setattr(self, "_magic_worker", None))
+            self._magic_thread.destroyed.connect(lambda: setattr(self, "_magic_thread", None))
+            
+            self._magic_thread.start()
+
+    def _on_magic_finished(self, keywords: str) -> None:
+        """Actualiza el campo de keywords con el resultado de la IA."""
+        self.keywords_input.setText(keywords)
+        self.magic_btn.setEnabled(True)
+        self._append_log("✅ Palabras clave generadas y cargadas.", "success")
+
+    def _on_magic_error(self, message: str) -> None:
+        """Maneja errores en la generación de keywords."""
+        self.magic_btn.setEnabled(True)
+        self._append_log(f"❌ Error en Búsqueda Mágica: {message}", "error")
+        QMessageBox.critical(self, "Error de IA", f"No se pudieron generar las palabras clave:\n{message}")
+
     def _start_pipeline(self) -> None:
         """
         Inicia el pipeline en un hilo separado.
@@ -600,6 +692,7 @@ class MainWindow(QMainWindow):
             vault_path=self.vault_input.text().strip(),
             api_key=self.api_key_input.text().strip(),
             provider=self.provider_combo.currentText().split(" ")[0].lower(),
+            use_gpu=self.gpu_check.isChecked(),
         )
 
         # ── Worker Object Pattern ──
@@ -621,12 +714,16 @@ class MainWindow(QMainWindow):
         self._worker.finished_signal.connect(self._worker.deleteLater)
         self._thread.finished.connect(self._thread.deleteLater)
 
+        # Evitar referencias muertas (RuntimeError)
+        self._worker.destroyed.connect(lambda: setattr(self, "_worker", None))
+        self._thread.destroyed.connect(lambda: setattr(self, "_thread", None))
+
         # Paso 4: Iniciar thread
         self._thread.start()
 
     def _stop_pipeline(self) -> None:
         """Solicita la cancelación del pipeline activo."""
-        if self._worker:
+        if self._worker and not sip.isdeleted(self._worker):
             self._worker.cancel()
             self._append_log("⏳ Solicitando cancelación...", "warn")
             self.stop_btn.setEnabled(False)
@@ -712,6 +809,8 @@ class MainWindow(QMainWindow):
             index = self.provider_combo.findText(provider)
             if index >= 0:
                 self.provider_combo.setCurrentIndex(index)
+        if "use_gpu" in config:
+            self.gpu_check.setChecked(bool(config["use_gpu"]))
 
     def _save_current_config(self) -> None:
         """Guarda la configuración actual para la próxima sesión."""
@@ -719,7 +818,8 @@ class MainWindow(QMainWindow):
             "vault_path": self.vault_input.text().strip(),
             "keywords": self.keywords_input.text().strip(),
             "max_results": self.max_results_spin.value(),
-            "provider": self.provider_combo.currentText().lower(),
+            "provider": self.provider_combo.currentText().split(" ")[0].lower(),
+            "use_gpu": self.gpu_check.isChecked(),
         }
         save_config(config)
 
@@ -731,19 +831,25 @@ class MainWindow(QMainWindow):
         """Guarda configuración y limpia hilos de forma segura al cerrar."""
         self._save_current_config()
 
-        if self._thread and self._thread.isRunning():
-            # Intentar cancelación elegante
-            if self._worker:
-                self._worker.cancel()
-            
-            # Detener el event loop del hilo
-            self._thread.quit()
-            
-            # Esperar a que el hilo termine realmente. 
-            # Si no termina en 2 segundos, forzamos (aunque terminate es agresivo,
-            # es mejor que un core dump en el cierre).
-            if not self._thread.wait(2000):
-                self._thread.terminate()
-                self._thread.wait()
+        # Verificar si el objeto C++ aún existe antes de acceder
+        if self._thread and not sip.isdeleted(self._thread):
+            if self._thread.isRunning():
+                # Intentar cancelación elegante
+                if self._worker and not sip.isdeleted(self._worker):
+                    self._worker.cancel()
+                
+                # Detener el event loop del hilo
+                self._thread.quit()
+                
+                # Esperar a que el hilo termine realmente. 
+                if not self._thread.wait(2000):
+                    self._thread.terminate()
+                    self._thread.wait()
+
+        # Limpiar hilo de búsqueda mágica si está activo
+        if self._magic_thread and not sip.isdeleted(self._magic_thread):
+            if self._magic_thread.isRunning():
+                self._magic_thread.quit()
+                self._magic_thread.wait(1000)
 
         event.accept()

@@ -118,3 +118,21 @@ class TestArxivClient:
         
         with pytest.raises(ConnectionError, match="Error al buscar en arXiv"):
             client.search("test")
+    def test_preprocess_query_logic(self):
+        """Verifica la transformación de queries con comas (phrases)."""
+        client = ArxivClient()
+        
+        # Caso 1: Sin comas (comportamiento original)
+        assert client._preprocess_query("deep learning") == "deep learning"
+        
+        # Caso 2: Con comas (phrases)
+        assert client._preprocess_query("deep learning, transformer") == '"deep learning" AND "transformer"'
+        
+        # Caso 3: Ya tiene comillas
+        assert client._preprocess_query('"deep learning", transformer') == '"deep learning" AND "transformer"'
+        
+        # Caso 4: Espacios extra
+        assert client._preprocess_query("  ai ,  nlp  ") == '"ai" AND "nlp"'
+        
+        # Caso 5: Query vacía
+        assert client._preprocess_query("   ") == ""

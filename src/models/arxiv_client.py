@@ -53,29 +53,14 @@ class ArxivClient:
         """
         Busca papers en arXiv por palabras clave.
 
-        La query se envía directamente al campo `search_query` de la API.
-        Soporta prefijos de campo como:
-          - ti: (título)
-          - au: (autor)
-          - abs: (abstract)
-          - cat: (categoría)
-        
-        Si la query es texto plano sin prefijos, busca en todos los campos.
-
-        Args:
-            query: Palabras clave o query estructurada de arXiv.
-            max_results: Número máximo de resultados a retornar (1-50).
-
-        Returns:
-            Lista de objetos Paper con los metadatos de cada paper encontrado.
-
-        Raises:
-            ConnectionError: Si no hay conexión a internet.
-            arxiv.HTTPError: Si la API de arXiv responde con error.
+        Soporta comas para separar frases exactas (conjuntos de palabras).
+        Ejemplo: 'deep learning, transformer' busca '"deep learning" AND "transformer"'.
         """
+        processed_query = self._preprocess_query(query)
+        
         search = arxiv.Search(
-            query=query,
-            max_results=min(max_results, 50),  # Cap a 50 para ser responsable
+            query=processed_query,
+            max_results=min(max_results, 50),
             sort_by=arxiv.SortCriterion.SubmittedDate,
             sort_order=arxiv.SortOrder.Descending,
         )
@@ -103,4 +88,31 @@ class ArxivClient:
                 f"Error al buscar en arXiv: {str(e)}"
             ) from e
 
+
         return papers
+
+    def _preprocess_query(self, query: str) -> str:
+        """
+        Transforma la query del usuario para soportar frases via comas.
+        
+        Si contiene comas, envuelve cada parte en comillas dobles y une con AND.
+        Si no las tiene, se mantiene el comportamiento original (unión por espacios).
+        """
+        query = query.strip()
+        if not query:
+            return ""
+
+        if "," in query:
+            # Separar por comas, limpiar espacios y envolver en comillas
+            parts = [p.strip() for p in query.split(",") if p.strip()]
+            quoted_parts = []
+            for p in parts:
+                # Solo envolver si no tiene ya comillas
+                if not (p.startswith('"') and p.endswith('"')):
+                    quoted_parts.append(f'"{p}"')
+                else:
+                    quoted_parts.append(p)
+            
+            return " AND ".join(quoted_parts)
+        
+        return query

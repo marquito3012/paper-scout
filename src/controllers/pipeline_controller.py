@@ -28,6 +28,7 @@ class PipelineConfig:
     vault_path: str
     api_key: str
     provider: str  # "gemini" o "openai"
+    use_gpu: bool
 
 
 class PipelineWorker(QObject):
@@ -126,6 +127,7 @@ class PipelineWorker(QObject):
             summarizer = LLMSummarizer(
                 provider=self._config.provider,
                 api_key=self._config.api_key,
+                use_gpu=self._config.use_gpu,
             )
 
             # ── Paso 3: Inicializar escritor de Obsidian ──

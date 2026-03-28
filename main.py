@@ -36,7 +36,7 @@ def main():
     
     # Crear y mostrar ventana principal
     window = MainWindow()
-    window.show()
+    window.showMaximized()
     
     sys.exit(app.exec())
 

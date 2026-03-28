@@ -42,6 +42,20 @@ REGLAS:
 - Mantén el formato exacto de las secciones con los emojis."""
 
 
+# ──────────────────────────────────────────────────
+# System prompt para generación de palabras clave
+# ──────────────────────────────────────────────────
+KEYWORDS_SYSTEM_PROMPT = """Eres un experto en búsqueda bibliográfica académica.
+Tu tarea es convertir una descripción de un tema de investigación en una lista de 3 a 5 términos de búsqueda (keywords o frases) optimizados para la API de arXiv.
+
+REGLAS:
+- Devuelve ÚNICAMENTE los términos separados por comas.
+- No incluyas explicaciones, introducciones ni numeración.
+- Los términos deben ser técnicos y específicos.
+- Ejemplo de salida: transformer, long context, audio processing, sparse attention
+"""
+
+
 def _build_user_prompt(paper: Paper) -> str:
     """
     Construye el prompt del usuario con título y abstract del paper.
@@ -65,18 +79,20 @@ class LLMSummarizer:
     y summarize() delega al backend correcto.
     """
 
-    SUPPORTED_PROVIDERS = ("gemini", "openai", "ollama")
+    SUPPORTED_PROVIDERS = ("gemini", "openai", "ollama", "claude")
 
-    def __init__(self, provider: str, api_key: str):
+    def __init__(self, provider: str, api_key: str, use_gpu: bool = False):
         """
         Inicializa el cliente del LLM según el proveedor.
 
         Args:
-            provider: "gemini", "openai" o "ollama".
+            provider: "gemini", "openai", "claude" o "ollama".
             api_key: API key (no requerida para Ollama).
+            use_gpu: Si True, intenta aceleración por GPU (Ollama).
         """
         self._provider = provider.lower().strip()
         self._api_key = api_key
+        self._use_gpu = use_gpu
 
         if self._provider not in self.SUPPORTED_PROVIDERS:
             raise ValueError(
@@ -91,10 +107,6 @@ class LLMSummarizer:
     def _init_client(self) -> None:
         """
         Inicializa el cliente del LLM.
-        
-        Gemini: usa google.genai.Client.
-        OpenAI: usa openai.OpenAI.
-        Ollama: usa ollama client (local).
         """
         if self._provider == "gemini":
             from google import genai
@@ -104,75 +116,99 @@ class LLMSummarizer:
             from openai import OpenAI
             self._client = OpenAI(api_key=self._api_key)
             
+        elif self._provider == "claude":
+            import anthropic
+            self._client = anthropic.Anthropic(api_key=self._api_key)
+            
         elif self._provider == "ollama":
             import ollama
             self._client = ollama
 
     def summarize(self, paper: Paper) -> str:
-        """
-        Genera un resumen estructurado del paper usando el LLM configurado.
-
-        El resumen se devuelve como texto Markdown listo para insertar
-        en la nota de Obsidian, con las secciones predefinidas.
-        """
+        """Genera un resumen estructurado del paper."""
         user_prompt = _build_user_prompt(paper)
+        return self._generate(SYSTEM_PROMPT, user_prompt)
 
+    def generate_keywords(self, description: str) -> str:
+        """
+        Genera palabras clave optimizadas a partir de una descripción.
+        """
+        user_prompt = f"Descripción del tema: {description}\n\nGenera los términos de búsqueda:"
+        return self._generate(KEYWORDS_SYSTEM_PROMPT, user_prompt)
+
+    def _generate(self, system_prompt: str, user_prompt: str) -> str:
+        """Método genérico para llamar al LLM con prompts específicos."""
         try:
             if self._provider == "gemini":
-                return self._summarize_gemini(user_prompt)
+                return self._call_gemini(system_prompt, user_prompt)
             elif self._provider == "openai":
-                return self._summarize_openai(user_prompt)
+                return self._call_openai(system_prompt, user_prompt)
+            elif self._provider == "claude":
+                return self._call_claude(system_prompt, user_prompt)
             elif self._provider == "ollama":
-                return self._summarize_ollama(user_prompt)
+                return self._call_ollama(system_prompt, user_prompt)
 
         except Exception as e:
-            # Capturar mensaje específico de cuota excedida para mayor claridad
             error_msg = str(e)
             if "quota" in error_msg.lower() or "429" in error_msg:
-                error_msg = "Cuota de API excedida (Rate Limit). Inténtalo más tarde."
+                error_msg = "Cuota de API excedida. Inténtalo más tarde."
             elif "connection" in error_msg.lower() and self._provider == "ollama":
-                error_msg = "No se pudo conectar con Ollama. ¿Está el servidor corriendo?"
+                error_msg = "Error de conexión con Ollama local."
             
-            raise RuntimeError(
-                f"Error al generar resumen con {self._provider}: {error_msg}"
-            ) from e
+            raise RuntimeError(f"Error con {self._provider}: {error_msg}") from e
 
-    def _summarize_gemini(self, user_prompt: str) -> str:
-        """Genera resumen usando Google Gemini (SDK moderno)."""
+    def _call_gemini(self, system_prompt: str, user_prompt: str) -> str:
+        """Llamada directa a Gemini."""
         response = self._client.models.generate_content(
             model="gemini-2.0-flash",
             contents=user_prompt,
             config={
-                "system_instruction": SYSTEM_PROMPT,
+                "system_instruction": system_prompt,
                 "temperature": 0.3,
             }
         )
         return response.text.strip()
 
-    def _summarize_openai(self, user_prompt: str) -> str:
-        """Genera resumen usando OpenAI Chat Completions API."""
+    def _call_openai(self, system_prompt: str, user_prompt: str) -> str:
+        """Llamada directa a OpenAI."""
         response = self._client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.3,
-            max_tokens=2048,
         )
         return response.choices[0].message.content.strip()
 
-    def _summarize_ollama(self, user_prompt: str) -> str:
-        """Genera resumen usando Ollama local (Llama 3.2 3B)."""
-        # Formatear el prompt con el system prompt según el formato de Ollama
+    def _call_ollama(self, system_prompt: str, user_prompt: str) -> str:
+        """Llamada directa a Ollama."""
+        # Configuración de aceleración
+        options = {'temperature': 0.3}
+        if self._use_gpu:
+            # Forzar offloading de capas (35 es suficiente para Llama 3.2 3B)
+            options['num_gpu'] = 35
+
         response = self._client.chat(
-            model='llama3.2', # Modelo recomendado para CPU/8GB RAM
+            model='llama3.2',
             messages=[
-                {'role': 'system', 'content': SYSTEM_PROMPT},
+                {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': user_prompt},
             ],
-            options={
-                'temperature': 0.3,
-            }
+            options=options
         )
         return response['message']['content'].strip()
+
+    def _call_claude(self, system_prompt: str, user_prompt: str) -> str:
+        """Llamada directa a Anthropic Claude."""
+        response = self._client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=2048,
+            temperature=0.3,
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+        # Claude devuelve una lista de bloques de contenido
+        return response.content[0].text.strip()
