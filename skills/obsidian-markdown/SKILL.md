@@ -9,24 +9,24 @@ description: Estructura exacta del archivo .md que se genera para Obsidian, incl
 
 Todo archivo `.md` generado por paper-scout DEBE seguir esta estructura exacta:
 
-```markdown
 ---
 title: "Título completo del paper"
+aliases: 
+  - "Acrónimo o nombre corto si lo tiene (ej. BERT, GPT-4)"
 authors:
-  - Nombre Autor 1
-  - Nombre Autor 2
+  - "[[Nombre Autor 1]]"
+  - "[[Nombre Autor 2]]"
 tags:
   - paper
   - [categoria_arxiv_mapeada]
-date: YYYY-MM-DD          # Fecha de publicación del paper
+date: YYYY-MM-DD
 arxiv_id: "XXXX.XXXXX"
 url: "https://arxiv.org/abs/XXXX.XXXXX"
 pdf_url: "https://arxiv.org/pdf/XXXX.XXXXX"
 categories:
   - cs.AI
-  - cs.LG
 status: unread
-created: YYYY-MM-DD       # Fecha de creación de la nota
+created: YYYY-MM-DD
 ---
 
 # Título completo del paper
@@ -39,7 +39,7 @@ created: YYYY-MM-DD       # Fecha de creación de la nota
 [Resumen generado por IA en español]
 
 ## 🔬 Metodología
-[Resumen generado por IA en español]
+[Resumen generado por IA en español. *Instrucción para el LLM: Envuelve arquitecturas, algoritmos o frameworks clave en wikilinks, ej. [[Transformer]], [[PyTorch]]*]
 
 ## 📊 Resultados Clave
 [Resumen generado por IA en español]
@@ -47,13 +47,15 @@ created: YYYY-MM-DD       # Fecha de creación de la nota
 ## 💡 Contribución e Impacto
 [Resumen generado por IA en español]
 
-## 🔗 Conexiones
-[Resumen generado por IA en español]
+## 🔗 Conceptos Clave y Conexiones
+* **Conceptos:** [[Concepto Clave 1]], [[Concepto Clave 2]], [[Concepto Clave 3]]
+* **Relación con el estado del arte:** [Explicación generada por IA sobre cómo este paper avanza el campo, mencionando otros paradigmas entre corchetes si es relevante].
 
 ---
 
 *Nota generada automáticamente por [paper-scout](https://github.com/marquito3012/paper-scout)*
-```
+
+---
 
 ## 2. Frontmatter YAML — Campos Obligatorios
 

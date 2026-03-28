@@ -54,6 +54,14 @@ chmod +x install_app.sh
 ```
 *Ahora podrás encontrar "Paper Scout" en tu menú de aplicaciones con su icono oficial.*
 
+### 🗑️ Desinstalación
+Si deseas eliminar el acceso directo de tu sistema:
+```bash
+chmod +x uninstall_app.sh
+./uninstall_app.sh
+```
+*Nota: Esto solo elimina la integración de escritorio. Los archivos del proyecto y el entorno virtual permanecerán en la carpeta hasta que los borres manualmente.*
+
 ---
 
 ## 🎮 Guía de Uso
