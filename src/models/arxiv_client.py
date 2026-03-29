@@ -46,11 +46,11 @@ class ArxivClient:
             page_size: Número de resultados por página para la paginación
                        interna de la librería arxiv. Default: 10.
         """
-        # Aumentar retries y delay para robustez (SKILL.md & 503 fix)
+        # Aumentar considerablemente delay y retries (Safe Mode for 503s)
         self._client = arxiv.Client(
             page_size=page_size,
-            delay_seconds=3.1,
-            num_retries=5
+            delay_seconds=5.0,  # Más seguro: 5s entre peticiones
+            num_retries=10      # Intentar hasta 10 veces
         )
 
     def search(self, query: str, max_results: int = 10) -> list[Paper]:
