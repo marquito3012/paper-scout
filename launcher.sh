@@ -2,7 +2,10 @@
 # Script de lanzamiento para Paper Scout
 # Navega a la carpeta del proyecto, activa el venv y lanza la App.
 
-PROJECT_DIR="/home/marco/paper-scout"
+# Detectar directorio del script (funciona desde cualquier ubicación)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR"
+
 cd "$PROJECT_DIR" || exit
 
 # Activar venv si existe
